@@ -1,13 +1,23 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
+from flask_mail import Mail, Message
 from db import db
 from models import Usuario, PasswordToken
 from datetime import datetime, timedelta, timezone
 import bcrypt
 import uuid
 
+#conexión a la bd
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:admin@localhost:3306/reset_app'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+#configuración mail
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = 'jhonri.0614@gmail.com'
+app.config['MAIL_PASSWORD'] = 'iqsl rwqd foks ziqo' #contraseña de aplicación gmail
+mail = Mail(app)
 
 db.init_app(app)
 with app.app_context():
@@ -36,12 +46,35 @@ def forgot_password():
     db.session.add(nuevo_token)
     db.session.commit()
 
-    return jsonify({'message': 'Correo de restablecimiento enviado',
-                   "token": token,
-                   "expiracion": expiracion.isoformat()}), 200
+    msg = Message(
+        subject="Restablecer contraseña",
+        sender=app.config['MAIL_USERNAME'],
+        recipients=[email]
+    )
+
+    msg.html = f"""
+        <h2>Restablecer contraseña</h2>
+        <p>Haz clic en el siguiente botón:</p>
+        <a href="http://127.0.0.1:5000/reset.html?token={token}">
+            Resetear contraseña
+        </a>
+        <p>Expira en 15 minutos.</p>
+        """
+
+    try:
+        mail.send(msg)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+    return jsonify({'message': 'Correo de restablecimiento enviado'}), 200
+
+# direccionamiento página
+@app.route("/reset.html")
+def reset_page():
+    return render_template('reset.html')
 
 #resetear contraseña
-@app.route("/reset-password", methods=["POST"])
+@app.route("/reset-password", methods=["GET","POST"])
 def reset_password():
     data = request.get_json()
     token = data.get('token')
