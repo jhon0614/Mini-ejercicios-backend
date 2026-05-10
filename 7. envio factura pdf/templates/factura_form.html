@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Generador de Facturas</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
+</head>
+<body>
+<div class="wrapper">
+    <header>
+        <div class="logo-badge">🧾</div>
+        <div>
+            <h1>Generador de Facturas</h1>
+            <p>Completa los campos y descarga tu factura en PDF</p>
+        </div>
+    </header>
+
+    <form id="form-factura">
+        <div class="card">
+            <div class="card-title">Información de la factura</div>
+            <div class="grid-2">
+                <div class="field">
+                    <label for="numero_factura">Número de factura</label>
+                    <input type="text" id="numero_factura" name="numero_factura" placeholder="FAC-2025-001" required />
+                </div>
+                <div class="field">
+                    <label for="fecha">Fecha de emisión</label>
+                    <input type="text" id="fecha" name="fecha" placeholder="DD/MM/YYYY" />
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Datos del cliente</div>
+            <div class="grid-2">
+                <div class="field" style="grid-column:1/-1">
+                    <label for="cliente_nombre">Nombre / Razón social</label>
+                    <input type="text" id="cliente_nombre" placeholder="Juan García S.A.S." required />
+                </div>
+                <div class="field">
+                    <label for="cliente_nit">NIT / Cédula</label>
+                    <input type="text" id="cliente_nit" placeholder="900.123.456-7" />
+                </div>
+                <div class="field">
+                    <label for="cliente_email">Correo electrónico</label>
+                    <input type="email" id="cliente_email" placeholder="cliente@correo.com" />
+                </div>
+                <div class="field" style="grid-column:1/-1">
+                    <label for="cliente_direccion">Dirección</label>
+                    <input type="text" id="cliente_direccion" placeholder="Calle 50 #40-20, Medellín" />
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Productos / Servicios</div>
+            <div id="items-container"></div>
+            <button type="button" class="btn-add" onclick="agregarItem()">
+                + Agregar ítem
+            </button>
+        </div>
+
+        <div class="totales">
+            <div class="totales-row"><span>Subtotal</span><span id="prev-subtotal">$0</span></div>
+            <div class="totales-row"><span>Descuentos</span><span id="prev-descuentos">-$0</span></div>
+            <div class="totales-row"><span>IVA (19%)</span><span id="prev-iva">$0</span></div>
+            <div class="totales-row total-final"><span>Total a pagar</span><span id="prev-total">$0</span></div>
+        </div>
+
+        <div class="card" style="margin-top:1.25rem">
+            <div class="card-title">Notas adicionales</div>
+            <div class="field">
+                <textarea id="notas" rows="3" placeholder="Condiciones de pago, datos bancarios, observaciones..."></textarea>
+            </div>
+        </div>
+
+        <div class="btn-group">
+            <button type="submit" class="btn-generate" id="btn-submit">
+                <div class="spinner" id="spinner"></div>
+                <span id="btn-text">⬇ Descargar PDF</span>
+            </button>
+            <button type="button" class="btn-generate btn-email" id="btn-enviar" onclick="enviarPorCorreo()">
+                <div class="spinner" id="spinner-email"></div>
+                <span id="btn-email-text">✉ Enviar por correo</span>
+            </button>
+        </div>
+    </form>
+</div>
+
+<div id="toast"></div>
+
+<script src="static/js/script.js"></script>
+
+</body>
+</html>
