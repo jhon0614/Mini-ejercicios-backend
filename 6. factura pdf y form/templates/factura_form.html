@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Generador de Facturas</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
+</head>
+<body>
+<div class="wrapper">
+
+  <header>
+    <div class="logo-badge">🧾</div>
+    <div>
+      <h1>Generador de Facturas</h1>
+      <p>Completa los campos y descarga tu factura en PDF</p>
+    </div>
+  </header>
+
+  <form id="form-factura">
+
+    <!-- Número y fecha -->
+    <div class="card">
+      <div class="card-title">Información de la factura</div>
+      <div class="grid-2">
+        <div class="field">
+          <label for="numero_factura">Número de factura</label>
+          <input type="text" id="numero_factura" name="numero_factura"
+                 placeholder="FAC-2025-001" required />
+        </div>
+        <div class="field">
+          <label for="fecha">Fecha de emisión</label>
+          <input type="text" id="fecha" name="fecha"
+                 placeholder="DD/MM/YYYY" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Cliente -->
+    <div class="card">
+      <div class="card-title">Datos del cliente</div>
+      <div class="grid-2">
+        <div class="field" style="grid-column:1/-1">
+          <label for="cliente_nombre">Nombre / Razón social</label>
+          <input type="text" id="cliente_nombre" placeholder="Juan García S.A.S." required />
+        </div>
+        <div class="field">
+          <label for="cliente_nit">NIT / Cédula</label>
+          <input type="text" id="cliente_nit" placeholder="900.123.456-7" />
+        </div>
+        <div class="field">
+          <label for="cliente_email">Correo electrónico</label>
+          <input type="email" id="cliente_email" placeholder="cliente@correo.com" />
+        </div>
+        <div class="field" style="grid-column:1/-1">
+          <label for="cliente_direccion">Dirección</label>
+          <input type="text" id="cliente_direccion" placeholder="Calle 50 #40-20, Medellín" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Ítems -->
+    <div class="card">
+      <div class="card-title">Productos / Servicios</div>
+      <div id="items-container"></div>
+      <button type="button" class="btn-add" onclick="agregarItem()">
+        + Agregar ítem
+      </button>
+    </div>
+
+    <!-- Totales preview -->
+    <div class="totales">
+      <div class="totales-row"><span>Subtotal</span><span id="prev-subtotal">$0</span></div>
+      <div class="totales-row"><span>Descuentos</span><span id="prev-descuentos">-$0</span></div>
+      <div class="totales-row"><span>IVA (19%)</span><span id="prev-iva">$0</span></div>
+      <div class="totales-row total-final"><span>Total a pagar</span><span id="prev-total">$0</span></div>
+    </div>
+
+    <!-- Notas -->
+    <div class="card" style="margin-top:1.25rem">
+      <div class="card-title">Notas adicionales</div>
+      <div class="field">
+        <textarea id="notas" rows="3"
+          placeholder="Condiciones de pago, datos bancarios, observaciones..."></textarea>
+      </div>
+    </div>
+
+    <!-- Submit -->
+    <button type="submit" class="btn-generate" id="btn-submit">
+      <div class="spinner" id="spinner"></div>
+      <span id="btn-text">⬇ Generar y descargar PDF</span>
+    </button>
+
+  </form>
+</div>
+
+<div id="toast"></div>
+
+<script>
+let itemCount = 0;
+
+function fmt(n) {
+  return '$' + Math.round(n).toLocaleString('es-CO');
+}
+
+function agregarItem() {
+  itemCount++;
+  const id = itemCount;
+  const div = document.createElement('div');
+  div.className = 'item-row';
+  div.id = `item-${id}`;
+  div.innerHTML = `
+    <div class="field">
+      <label>Descripción</label>
+      <input type="text" placeholder="Ej: Desarrollo módulo ventas" oninput="actualizarTotales()" data-field="desc" />
+    </div>
+    <div class="field">
+      <label>Cant.</label>
+      <input type="number" value="1" min="1" step="0.01" oninput="actualizarSubtotal(${id}); actualizarTotales()" data-field="cant" />
+    </div>
+    <div class="field">
+      <label>Precio unitario</label>
+      <input type="number" value="" min="0" placeholder="0" oninput="actualizarSubtotal(${id}); actualizarTotales()" data-field="precio" />
+    </div>
+    <div class="field">
+      <label>Desc. %</label>
+      <input type="number" value="0" min="0" max="100" placeholder="0" oninput="actualizarSubtotal(${id}); actualizarTotales()" data-field="desc_pct" />
+    </div>
+    <div class="subtotal-display" id="sub-${id}">$0</div>
+    <button type="button" class="btn-remove" onclick="eliminarItem(${id})" title="Eliminar">✕</button>
+  `;
+  document.getElementById('items-container').appendChild(div);
+  div.querySelector('[data-field="desc"]').focus();
+  actualizarTotales();
+}
+
+function eliminarItem(id) {
+  const el = document.getElementById(`item-${id}`);
+  if (el) { el.style.opacity = '0'; el.style.transform = 'translateY(-8px)'; el.style.transition = 'all .2s'; setTimeout(() => el.remove(), 200); }
+  setTimeout(actualizarTotales, 210);
+}
+
+function getItemData(row) {
+  return {
+    descripcion: row.querySelector('[data-field="desc"]').value.trim(),
+    cantidad:    parseFloat(row.querySelector('[data-field="cant"]').value)    || 0,
+    precio_unit: parseFloat(row.querySelector('[data-field="precio"]').value)  || 0,
+    descuento:   parseFloat(row.querySelector('[data-field="desc_pct"]').value)|| 0,
+  };
+}
+
+function actualizarSubtotal(id) {
+  const row = document.getElementById(`item-${id}`);
+  if (!row) return;
+  const d = getItemData(row);
+  const bruto = d.cantidad * d.precio_unit;
+  const neto  = bruto * (1 - d.descuento / 100);
+  document.getElementById(`sub-${id}`).textContent = fmt(neto);
+}
+
+function actualizarTotales() {
+  let subtotal = 0, descuentos = 0;
+  document.querySelectorAll('.item-row').forEach(row => {
+    const d = getItemData(row);
+    const bruto = d.cantidad * d.precio_unit;
+    subtotal   += bruto;
+    descuentos += bruto * d.descuento / 100;
+  });
+  const base = subtotal - descuentos;
+  const iva   = base * 0.19;
+  const total = base + iva;
+  document.getElementById('prev-subtotal').textContent  = fmt(subtotal);
+  document.getElementById('prev-descuentos').textContent= '-' + fmt(descuentos);
+  document.getElementById('prev-iva').textContent       = fmt(iva);
+  document.getElementById('prev-total').textContent     = fmt(total);
+}
+
+function showToast(msg, tipo = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `show ${tipo}`;
+  setTimeout(() => t.className = '', 3500);
+}
+
+function setLoading(on) {
+  const btn = document.getElementById('btn-submit');
+  document.getElementById('spinner').style.display = on ? 'block' : 'none';
+  document.getElementById('btn-text').textContent  = on ? 'Generando PDF…' : '⬇ Generar y descargar PDF';
+  btn.disabled = on;
+}
+
+// Fecha default hoy
+(function() {
+  const hoy = new Date();
+  const dd = String(hoy.getDate()).padStart(2,'0');
+  const mm = String(hoy.getMonth()+1).padStart(2,'0');
+  const yyyy = hoy.getFullYear();
+  document.getElementById('fecha').value = `${dd}/${mm}/${yyyy}`;
+  // Número de factura sugerido
+  document.getElementById('numero_factura').value = `FAC-${yyyy}-001`;
+  // Ítem inicial
+  agregarItem();
+})();
+
+document.getElementById('form-factura').addEventListener('submit', async function(e) {
+  e.preventDefault();
+
+  const items = [];
+  document.querySelectorAll('.item-row').forEach(row => {
+    const d = getItemData(row);
+    if (d.descripcion && d.precio_unit > 0) items.push(d);
+  });
+
+  if (items.length === 0) {
+    showToast('Agrega al menos un ítem con descripción y precio.', 'error');
+    return;
+  }
+
+  const payload = {
+    numero_factura: document.getElementById('numero_factura').value.trim(),
+    fecha:          document.getElementById('fecha').value.trim() || null,
+    cliente: {
+      nombre:    document.getElementById('cliente_nombre').value.trim(),
+      nit:       document.getElementById('cliente_nit').value.trim(),
+      email:     document.getElementById('cliente_email').value.trim(),
+      direccion: document.getElementById('cliente_direccion').value.trim(),
+    },
+    items,
+    notas: document.getElementById('notas').value.trim(),
+  };
+
+  setLoading(true);
+
+  try {
+    const res = await fetch('/factura', {
+      method:  'POST',
+      headers: {'Content-Type': 'application/json'},
+      body:    JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Error ${res.status}`);
+    }
+
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `${payload.numero_factura}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('✓ Factura generada exitosamente', 'success');
+
+  } catch (err) {
+    showToast('✗ ' + err.message, 'error');
+  } finally {
+    setLoading(false);
+  }
+});
+</script>
+</body>
+</html>
