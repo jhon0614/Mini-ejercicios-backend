@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chat en tiempo real</title>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: "Courier New", Courier, monospace;
+        background: #080b10;
+        color: #e8e8e8;
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+      }
+
+      .shell {
+        width: 100%;
+        max-width: 560px;
+        background: #0f1117;
+        border: 1px solid #2a2d36;
+        border-radius: 16px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        height: min(90vh, 640px);
+      }
+
+      /* top bar */
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 13px 18px;
+        background: #161820;
+        border-bottom: 1px solid #2a2d36;
+        flex-shrink: 0;
+      }
+      .topbar-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #555;
+        transition: background 0.3s;
+      }
+      .status-dot.connected {
+        background: #3ddc84;
+      }
+      .room-name {
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        color: #e8e8e8;
+      }
+      .users-badge {
+        font-size: 11px;
+        color: #6b7280;
+        border: 1px solid #2a2d36;
+        border-radius: 4px;
+        padding: 2px 8px;
+      }
+
+      /* messages */
+      .msgs {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .msgs::-webkit-scrollbar {
+        width: 4px;
+      }
+      .msgs::-webkit-scrollbar-thumb {
+        background: #2a2d36;
+        border-radius: 2px;
+      }
+
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(5px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .msg-row {
+        display: flex;
+        gap: 10px;
+        animation: slideIn 0.2s ease;
+      }
+      .msg-row.own {
+        flex-direction: row-reverse;
+      }
+
+      .avatar {
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        font-weight: 600;
+        flex-shrink: 0;
+        color: #0f1117;
+      }
+
+      .bubble-wrap {
+        display: flex;
+        flex-direction: column;
+        max-width: 72%;
+      }
+      .msg-row.own .bubble-wrap {
+        align-items: flex-end;
+      }
+
+      .meta {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        margin-bottom: 3px;
+      }
+      .msg-row.own .meta {
+        flex-direction: row-reverse;
+      }
+      .nick {
+        font-size: 11px;
+        font-weight: 600;
+        color: #9ca3af;
+      }
+      .hora {
+        font-size: 10px;
+        color: #4b5563;
+      }
+
+      .bubble {
+        padding: 8px 12px;
+        font-size: 13px;
+        line-height: 1.55;
+        word-break: break-word;
+      }
+      .msg-row:not(.own) .bubble {
+        background: #1e2130;
+        color: #d1d5db;
+        border-radius: 4px 10px 10px 10px;
+      }
+      .msg-row.own .bubble {
+        background: #1a3a5c;
+        color: #93c5fd;
+        border-radius: 10px 4px 10px 10px;
+      }
+
+      .system-msg {
+        text-align: center;
+        font-size: 11px;
+        color: #4b5563;
+        padding: 4px 0;
+      }
+      .system-msg span {
+        background: #161820;
+        border: 1px solid #2a2d36;
+        border-radius: 10px;
+        padding: 3px 10px;
+      }
+
+      /* input bar */
+      .input-bar {
+        padding: 12px 14px;
+        border-top: 1px solid #2a2d36;
+        background: #161820;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-shrink: 0;
+      }
+      .nick-input {
+        width: 90px;
+        background: #0f1117;
+        border: 1px solid #2a2d36;
+        border-radius: 6px;
+        padding: 8px 10px;
+        font-size: 12px;
+        color: #9ca3af;
+        font-family: inherit;
+        transition: border-color 0.2s;
+      }
+      .nick-input:focus {
+        outline: none;
+        border-color: #378add;
+      }
+
+      .msg-input {
+        flex: 1;
+        background: #0f1117;
+        border: 1px solid #2a2d36;
+        border-radius: 6px;
+        padding: 8px 10px;
+        font-size: 13px;
+        color: #e8e8e8;
+        font-family: inherit;
+        transition: border-color 0.2s;
+      }
+      .msg-input:focus {
+        outline: none;
+        border-color: #378add;
+      }
+      .msg-input::placeholder {
+        color: #3d4148;
+      }
+
+      .send-btn {
+        background: #1a3a5c;
+        border: 1px solid #2563ab;
+        border-radius: 6px;
+        padding: 8px 16px;
+        color: #93c5fd;
+        font-size: 13px;
+        cursor: pointer;
+        font-family: inherit;
+        transition: background 0.15s;
+      }
+      .send-btn:hover {
+        background: #1e4a7a;
+      }
+      .send-btn:active {
+        transform: scale(0.97);
+      }
+      .send-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <div class="topbar">
+        <div class="topbar-left">
+          <span class="status-dot" id="statusDot"></span>
+          <span class="room-name">sala general</span>
+        </div>
+        <span class="users-badge" id="usersBadge">conectando...</span>
+      </div>
+
+      <div class="msgs" id="msgs"></div>
+
+      <div class="input-bar">
+        <input
+          class="nick-input"
+          id="nickInput"
+          type="text"
+          placeholder="tu nick"
+          maxlength="20"
+        />
+        <input
+          class="msg-input"
+          id="msgInput"
+          type="text"
+          placeholder="escribe un mensaje..."
+          maxlength="500"
+        />
+        <button class="send-btn" id="sendBtn" disabled>enviar</button>
+      </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script>
+      const msgsEl = document.getElementById("msgs");
+      const msgInput = document.getElementById("msgInput");
+      const nickInput = document.getElementById("nickInput");
+      const sendBtn = document.getElementById("sendBtn");
+      const statusDot = document.getElementById("statusDot");
+      const usersBadge = document.getElementById("usersBadge");
+
+      const COLORS = [
+        "#5DCAA5",
+        "#85B7EB",
+        "#F0997B",
+        "#AFA9EC",
+        "#FAC775",
+        "#ED93B1",
+        "#97C459",
+      ];
+      const nickColors = {};
+      let onlineCount = 0;
+
+      function getColor(nick) {
+        if (!nickColors[nick]) {
+          nickColors[nick] =
+            COLORS[Object.keys(nickColors).length % COLORS.length];
+        }
+        return nickColors[nick];
+      }
+
+      function initials(nick) {
+        return nick.slice(0, 2).toUpperCase();
+      }
+
+      function now() {
+        const d = new Date();
+        return (
+          d.getHours().toString().padStart(2, "0") +
+          ":" +
+          d.getMinutes().toString().padStart(2, "0")
+        );
+      }
+
+      function addMsg(nick, text, own) {
+        const color = getColor(nick);
+        const row = document.createElement("div");
+        row.className = "msg-row" + (own ? " own" : "");
+
+        const metaStyle = own ? "flex-direction:row-reverse;" : "";
+        const wrapStyle = own ? "align-items:flex-end;" : "";
+
+        row.innerHTML =
+          '<div class="avatar" style="background:' +
+          color +
+          '">' +
+          initials(nick) +
+          "</div>" +
+          '<div class="bubble-wrap" style="' +
+          wrapStyle +
+          '">' +
+          '<div class="meta" style="' +
+          metaStyle +
+          '">' +
+          '<span class="nick">' +
+          escHtml(nick) +
+          "</span>" +
+          '<span class="hora">' +
+          now() +
+          "</span>" +
+          "</div>" +
+          '<div class="bubble">' +
+          escHtml(text) +
+          "</div>" +
+          "</div>";
+
+        msgsEl.appendChild(row);
+        msgsEl.scrollTop = msgsEl.scrollHeight;
+      }
+
+      function addSystem(text) {
+        const d = document.createElement("div");
+        d.className = "system-msg";
+        d.innerHTML = "<span>" + escHtml(text) + " · " + now() + "</span>";
+        msgsEl.appendChild(d);
+        msgsEl.scrollTop = msgsEl.scrollHeight;
+      }
+
+      function escHtml(str) {
+        return str
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+      }
+
+      function getNick() {
+        return nickInput.value.trim() || "anónimo";
+      }
+
+      function send() {
+        const text = msgInput.value.trim();
+        if (!text) return;
+        socket.emit("mensaje", { nick: getNick(), mensaje: text });
+        msgInput.value = "";
+      }
+
+      sendBtn.addEventListener("click", send);
+      msgInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") send();
+      });
+
+      // ── socket ────────────────────────────────────────────────────────────
+      const socket = io({ query: { nick: getNick() } });
+
+      socket.on("connect", () => {
+        statusDot.classList.add("connected");
+        sendBtn.disabled = false;
+        onlineCount++;
+        usersBadge.textContent = onlineCount + " en línea";
+      });
+
+      socket.on("disconnect", () => {
+        statusDot.classList.remove("connected");
+        sendBtn.disabled = true;
+        onlineCount = Math.max(0, onlineCount - 1);
+        usersBadge.textContent = "desconectado";
+      });
+
+      socket.on("respuesta", (data) => {
+        const own = data.nick === getNick();
+        addMsg(data.nick, data.mensaje, own);
+      });
+
+      socket.on("sistema", (data) => {
+        addSystem(data.mensaje);
+      });
+
+      socket.on("error", (data) => {
+        addSystem("error: " + data.mensaje);
+      });
+
+      nickInput.addEventListener("change", () => {
+        socket.io.opts.query = { nick: getNick() };
+      });
+    </script>
+  </body>
+</html>
