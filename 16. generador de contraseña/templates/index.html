@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Generador de contraseñas</title>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #f5f5f3;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+      }
+
+      .card {
+        background: #fff;
+        border: 1px solid #e8e8e6;
+        border-radius: 16px;
+        padding: 2rem;
+        width: 100%;
+        max-width: 400px;
+      }
+
+      h1 {
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 1.5rem;
+        color: #111;
+      }
+
+      /* password display */
+      .pwd-display {
+        background: #fafaf9;
+        border: 1px solid #e5e5e3;
+        border-radius: 10px;
+        padding: 14px 12px 14px 16px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 54px;
+        margin-bottom: 1rem;
+      }
+      .pwd-text {
+        flex: 1;
+        font-family: "Courier New", monospace;
+        font-size: 15px;
+        letter-spacing: 0.06em;
+        color: #111;
+        word-break: break-all;
+        line-height: 1.5;
+      }
+      .pwd-placeholder {
+        color: #aaa;
+        font-size: 13px;
+        font-family: inherit;
+      }
+
+      @keyframes pop {
+        0% {
+          transform: scale(0.97);
+          opacity: 0.6;
+        }
+        100% {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
+      .fresh {
+        animation: pop 0.2s ease;
+      }
+
+      .copy-btn {
+        background: none;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        padding: 6px 9px;
+        cursor: pointer;
+        color: #6b7280;
+        font-size: 14px;
+        flex-shrink: 0;
+        transition: background 0.15s;
+        line-height: 1;
+      }
+      .copy-btn:hover {
+        background: #f0f0ee;
+      }
+      .copy-btn.copied {
+        color: #16a34a;
+        border-color: #bbf7d0;
+      }
+
+      /* strength */
+      .strength-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 1.25rem;
+      }
+      .s-bg {
+        flex: 1;
+        height: 4px;
+        background: #eee;
+        border-radius: 2px;
+        overflow: hidden;
+      }
+      .s-fill {
+        height: 100%;
+        width: 0%;
+        border-radius: 2px;
+        transition:
+          width 0.35s ease,
+          background 0.35s ease;
+      }
+      .s-label {
+        font-size: 11px;
+        font-weight: 600;
+        min-width: 56px;
+        text-align: right;
+        color: #aaa;
+        transition: color 0.35s;
+      }
+
+      /* slider */
+      .slider-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 1.25rem;
+      }
+      .slider-row label {
+        font-size: 13px;
+        color: #555;
+        white-space: nowrap;
+      }
+      .slider-row input[type="range"] {
+        flex: 1;
+      }
+      .slider-val {
+        font-size: 13px;
+        font-weight: 600;
+        min-width: 22px;
+        text-align: right;
+      }
+
+      /* toggles */
+      .toggles {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        margin-bottom: 1.5rem;
+      }
+      .toggle-btn {
+        padding: 8px 4px;
+        font-size: 12px;
+        font-weight: 500;
+        border-radius: 8px;
+        border: 1px solid #d1d5db;
+        background: #fff;
+        cursor: pointer;
+        color: #9ca3af;
+        transition: all 0.15s;
+        text-align: center;
+      }
+      .toggle-btn.on {
+        background: #f0f0ee;
+        color: #111;
+        border-color: #b3b3b0;
+      }
+
+      /* generate button */
+      .gen-btn {
+        width: 100%;
+        padding: 11px;
+        border-radius: 10px;
+        border: 1px solid #d1d5db;
+        background: #fff;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        color: #111;
+        transition: background 0.15s;
+      }
+      .gen-btn:hover {
+        background: #f5f5f3;
+      }
+      .gen-btn:active {
+        transform: scale(0.98);
+      }
+      .gen-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Generador de contraseñas</h1>
+
+      <div class="pwd-display">
+        <span class="pwd-placeholder" id="pwdText">presiona generar</span>
+        <button class="copy-btn" id="copyBtn" title="Copiar al portapapeles">
+          &#128203;
+        </button>
+      </div>
+
+      <div class="strength-row">
+        <div class="s-bg"><div class="s-fill" id="sFill"></div></div>
+        <span class="s-label" id="sLabel">—</span>
+      </div>
+
+      <div class="slider-row">
+        <label for="lenSlider">Longitud</label>
+        <input
+          type="range"
+          id="lenSlider"
+          min="8"
+          max="64"
+          value="12"
+          step="1"
+        />
+        <span class="slider-val" id="lenVal">12</span>
+      </div>
+
+      <div class="toggles">
+        <button class="toggle-btn on" id="t-may" data-key="mayusculas">
+          A–Z
+        </button>
+        <button class="toggle-btn on" id="t-num" data-key="numeros">0–9</button>
+        <button class="toggle-btn on" id="t-esp" data-key="especiales">
+          !@#
+        </button>
+      </div>
+
+      <button class="gen-btn" id="genBtn">&#8635; Generar contraseña</button>
+    </div>
+
+    <script>
+      const pwdText = document.getElementById("pwdText");
+      const copyBtn = document.getElementById("copyBtn");
+      const lenSlider = document.getElementById("lenSlider");
+      const lenVal = document.getElementById("lenVal");
+      const genBtn = document.getElementById("genBtn");
+      const sFill = document.getElementById("sFill");
+      const sLabel = document.getElementById("sLabel");
+
+      const TOGGLES = { mayusculas: true, numeros: true, especiales: true };
+
+      const TIERS = [
+        { min: 0, label: "—", color: "#aaa", bar: "#ccc" },
+        { min: 1, label: "débil", color: "#dc2626", bar: "#dc2626" },
+        { min: 30, label: "regular", color: "#d97706", bar: "#d97706" },
+        { min: 55, label: "buena", color: "#16a34a", bar: "#5DCAA5" },
+        { min: 75, label: "fuerte", color: "#0f6e56", bar: "#1D9E75" },
+      ];
+
+      function calcStrength(pwd) {
+        let s = Math.min((pwd.length / 64) * 50, 50);
+        if (/[A-Z]/.test(pwd)) s += 12;
+        if (/[a-z]/.test(pwd)) s += 10;
+        if (/\d/.test(pwd)) s += 12;
+        if (/[!@#$%^&*()]/.test(pwd)) s += 16;
+        return Math.round(Math.min(s, 100));
+      }
+
+      function updateStrength(pwd) {
+        if (!pwd) {
+          sFill.style.width = "0%";
+          sLabel.textContent = "—";
+          return;
+        }
+        const s = calcStrength(pwd);
+        const tier = [...TIERS].reverse().find((t) => s >= t.min) || TIERS[0];
+        sFill.style.width = s + "%";
+        sFill.style.background = tier.bar;
+        sLabel.style.color = tier.color;
+        sLabel.textContent = tier.label;
+      }
+
+      lenSlider.addEventListener("input", () => {
+        lenVal.textContent = lenSlider.value;
+      });
+
+      document.querySelectorAll(".toggle-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const key = btn.dataset.key;
+          const activeCount = Object.values(TOGGLES).filter(Boolean).length;
+          if (TOGGLES[key] && activeCount <= 1) return;
+          TOGGLES[key] = !TOGGLES[key];
+          btn.classList.toggle("on", TOGGLES[key]);
+        });
+      });
+
+      genBtn.addEventListener("click", async () => {
+        genBtn.disabled = true;
+        const params = new URLSearchParams({
+          longitud: lenSlider.value,
+          mayusculas: TOGGLES.mayusculas,
+          numeros: TOGGLES.numeros,
+          especiales: TOGGLES.especiales,
+        });
+        try {
+          const res = await fetch("/generar?" + params);
+          const data = await res.json();
+          if (data.password) {
+            pwdText.className = "pwd-text fresh";
+            pwdText.textContent = data.password;
+            updateStrength(data.password);
+            copyBtn.className = "copy-btn";
+            copyBtn.textContent = "\uD83D\uDCCB";
+          } else {
+            pwdText.textContent = data.error || "Error";
+          }
+        } catch (e) {
+          pwdText.textContent = "No se pudo conectar";
+        }
+        genBtn.disabled = false;
+      });
+
+      copyBtn.addEventListener("click", () => {
+        const txt = pwdText.textContent;
+        if (!txt || pwdText.classList.contains("pwd-placeholder")) return;
+        navigator.clipboard.writeText(txt).then(() => {
+          copyBtn.className = "copy-btn copied";
+          copyBtn.textContent = "✓";
+          setTimeout(() => {
+            copyBtn.className = "copy-btn";
+            copyBtn.textContent = "\uD83D\uDCCB";
+          }, 1800);
+        });
+      });
+    </script>
+  </body>
+</html>
