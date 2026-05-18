@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Validador de contraseña</title>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #f5f5f3;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+      }
+
+      .card {
+        background: #fff;
+        border-radius: 16px;
+        padding: 2rem;
+        width: 100%;
+        max-width: 420px;
+        border: 1px solid #e8e8e6;
+      }
+
+      h1 {
+        font-size: 18px;
+        font-weight: 600;
+        color: #111;
+        margin-bottom: 1.5rem;
+      }
+
+      label {
+        display: block;
+        font-size: 13px;
+        font-weight: 500;
+        color: #555;
+        margin-bottom: 6px;
+      }
+
+      .input-wrap {
+        position: relative;
+        margin-bottom: 1rem;
+      }
+
+      .pwd-input {
+        width: 100%;
+        padding: 10px 42px 10px 12px;
+        font-size: 15px;
+        font-family: "Courier New", monospace;
+        letter-spacing: 0.05em;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        background: #fafaf9;
+        color: #111;
+        transition: border-color 0.2s;
+      }
+      .pwd-input:focus {
+        outline: none;
+        border-color: #378add;
+        background: #fff;
+      }
+
+      .eye-btn {
+        position: absolute;
+        right: 11px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: #9ca3af;
+        font-size: 18px;
+        padding: 2px;
+        line-height: 1;
+      }
+      .eye-btn:hover {
+        color: #555;
+      }
+
+      /* strength bar */
+      .strength-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 1rem;
+      }
+      .strength-bg {
+        flex: 1;
+        height: 5px;
+        background: #eee;
+        border-radius: 3px;
+        overflow: hidden;
+      }
+      .strength-fill {
+        height: 100%;
+        width: 0%;
+        border-radius: 3px;
+        transition:
+          width 0.4s ease,
+          background 0.4s ease;
+      }
+      .strength-text {
+        font-size: 12px;
+        font-weight: 500;
+        min-width: 60px;
+        text-align: right;
+        color: #aaa;
+        transition: color 0.4s;
+      }
+
+      /* rules */
+      .rules {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 1.25rem;
+      }
+      .rule {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        color: #9ca3af;
+        transition: color 0.2s;
+      }
+      .rule.ok {
+        color: #16a34a;
+      }
+      .rule.fail {
+        color: #dc2626;
+      }
+      .rule-icon {
+        font-size: 15px;
+        flex-shrink: 0;
+      }
+
+      /* button */
+      .submit-btn {
+        width: 100%;
+        padding: 10px;
+        border-radius: 8px;
+        border: 1px solid #d1d5db;
+        background: #fff;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        color: #111;
+        transition: background 0.15s;
+      }
+      .submit-btn:hover {
+        background: #f5f5f3;
+      }
+      .submit-btn:active {
+        transform: scale(0.98);
+      }
+      .submit-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+
+      /* result */
+      .result {
+        display: none;
+        margin-top: 0.75rem;
+        padding: 10px 14px;
+        border-radius: 8px;
+        font-size: 13px;
+      }
+      .result.ok {
+        background: #f0fdf4;
+        color: #15803d;
+        border: 1px solid #bbf7d0;
+      }
+      .result.err {
+        background: #fef2f2;
+        color: #b91c1c;
+        border: 1px solid #fecaca;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Validador de contraseña</h1>
+
+      <label for="pwdInput">Contraseña</label>
+      <div class="input-wrap">
+        <input
+          class="pwd-input"
+          id="pwdInput"
+          type="password"
+          placeholder="escribe tu contraseña"
+          autocomplete="new-password"
+          maxlength="128"
+        />
+        <button
+          class="eye-btn"
+          id="eyeBtn"
+          aria-label="Mostrar u ocultar contraseña"
+        >
+          <span id="eyeIcon">&#128065;</span>
+        </button>
+      </div>
+
+      <div class="strength-row">
+        <div class="strength-bg">
+          <div class="strength-fill" id="sFill"></div>
+        </div>
+        <span class="strength-text" id="sText">—</span>
+      </div>
+
+      <div class="rules" id="rulesList">
+        <div class="rule" id="r-len">
+          <span class="rule-icon" id="i-len">&#9675;</span> Mínimo 8 caracteres
+        </div>
+        <div class="rule" id="r-may">
+          <span class="rule-icon" id="i-may">&#9675;</span> Al menos una
+          mayúscula
+        </div>
+        <div class="rule" id="r-min">
+          <span class="rule-icon" id="i-min">&#9675;</span> Al menos una
+          minúscula
+        </div>
+        <div class="rule" id="r-num">
+          <span class="rule-icon" id="i-num">&#9675;</span> Al menos un número
+        </div>
+        <div class="rule" id="r-esp">
+          <span class="rule-icon" id="i-esp">&#9675;</span> Al menos un carácter
+          especial
+        </div>
+      </div>
+
+      <button class="submit-btn" id="submitBtn" disabled>
+        Verificar contraseña
+      </button>
+      <div class="result" id="resultEl"></div>
+    </div>
+
+    <script>
+      const input = document.getElementById("pwdInput");
+      const eyeBtn = document.getElementById("eyeBtn");
+      const eyeIcon = document.getElementById("eyeIcon");
+      const sFill = document.getElementById("sFill");
+      const sText = document.getElementById("sText");
+      const submitBtn = document.getElementById("submitBtn");
+      const resultEl = document.getElementById("resultEl");
+
+      const RULES = [
+        { id: "r-len", iid: "i-len", fn: (p) => p.length >= 8 },
+        { id: "r-may", iid: "i-may", fn: (p) => /[A-Z]/.test(p) },
+        { id: "r-min", iid: "i-min", fn: (p) => /[a-z]/.test(p) },
+        { id: "r-num", iid: "i-num", fn: (p) => /\d/.test(p) },
+        {
+          id: "r-esp",
+          iid: "i-esp",
+          fn: (p) => /[!@#$%^&*(),.?":{}|<>]/.test(p),
+        },
+      ];
+
+      const TIERS = [
+        { min: 0, label: "—", color: "#aaa" },
+        { min: 1, label: "muy débil", color: "#dc2626" },
+        { min: 21, label: "débil", color: "#ea580c" },
+        { min: 41, label: "regular", color: "#d97706" },
+        { min: 61, label: "buena", color: "#16a34a" },
+        { min: 81, label: "fuerte", color: "#0f6e56" },
+      ];
+
+      function calcScore(p) {
+        const ok = RULES.filter((r) => r.fn(p)).length;
+        const base = Math.round((ok / RULES.length) * 80);
+        const bonus = Math.min(20, Math.max(0, (p.length - 8) * 2));
+        return base + bonus;
+      }
+
+      function update() {
+        const p = input.value;
+        resultEl.style.display = "none";
+
+        if (!p) {
+          reset();
+          return;
+        }
+
+        RULES.forEach((r) => {
+          const ok = r.fn(p);
+          const row = document.getElementById(r.id);
+          const icon = document.getElementById(r.iid);
+          row.className = "rule " + (ok ? "ok" : "fail");
+          icon.textContent = ok ? "✓" : "✗";
+        });
+
+        const s = calcScore(p);
+        sFill.style.width = s + "%";
+        const tier = [...TIERS].reverse().find((t) => s >= t.min) || TIERS[0];
+        sFill.style.background = tier.color;
+        sText.style.color = tier.color;
+        sText.textContent = tier.label;
+
+        submitBtn.disabled = false;
+      }
+
+      function reset() {
+        RULES.forEach((r) => {
+          document.getElementById(r.id).className = "rule";
+          document.getElementById(r.iid).textContent = "○";
+        });
+        sFill.style.width = "0%";
+        sText.textContent = "—";
+        sText.style.color = "#aaa";
+        submitBtn.disabled = true;
+      }
+
+      eyeBtn.addEventListener("click", () => {
+        const show = input.type === "password";
+        input.type = show ? "text" : "password";
+        eyeIcon.textContent = show ? "🙈" : "👁";
+      });
+
+      input.addEventListener("input", update);
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") submitBtn.click();
+      });
+
+      submitBtn.addEventListener("click", async () => {
+        const p = input.value.trim();
+        if (!p) return;
+        submitBtn.disabled = true;
+        try {
+          const res = await fetch("/validar", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ password: p }),
+          });
+          const data = await res.json();
+          resultEl.style.display = "block";
+          if (data.valida) {
+            resultEl.className = "result ok";
+            resultEl.textContent = data.mensaje || "Contraseña segura";
+          } else {
+            resultEl.className = "result err";
+            resultEl.textContent = (data.errores || []).join(" · ");
+          }
+        } catch (e) {
+          resultEl.style.display = "block";
+          resultEl.className = "result err";
+          resultEl.textContent = "No se pudo conectar con el servidor";
+        }
+        submitBtn.disabled = false;
+      });
+    </script>
+  </body>
+</html>
