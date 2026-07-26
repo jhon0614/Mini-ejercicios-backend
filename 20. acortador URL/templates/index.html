@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Acortador de URL</title>
+
+    <style>
+      :root {
+        --azul: #2563eb;
+        --azul-oscuro: #1d4ed8;
+        --rojo: #dc2626;
+        --fondo: #f7f8fb;
+        --texto: #1f2430;
+        --gris: #6b7280;
+        --borde: #e2e3ea;
+        --radio: 12px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 48px 20px 80px;
+        font-family: "Segoe UI", Arial, sans-serif;
+        background: var(--fondo);
+        color: var(--texto);
+      }
+
+      h1 {
+        margin: 0 0 6px;
+        font-size: 1.8rem;
+        letter-spacing: -0.02em;
+      }
+
+      .subtitulo {
+        margin: 0 0 28px;
+        color: var(--gris);
+      }
+
+      form {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 16px;
+      }
+
+      input {
+        flex: 1;
+        padding: 12px 14px;
+        border: 1px solid var(--borde);
+        border-radius: var(--radio);
+        font-size: 1rem;
+        background: white;
+      }
+
+      input:focus-visible {
+        outline: 2px solid var(--azul);
+        outline-offset: 1px;
+      }
+
+      button {
+        padding: 12px 18px;
+        border: none;
+        border-radius: var(--radio);
+        background: var(--azul);
+        color: white;
+        font-weight: 600;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: background 0.15s ease;
+        white-space: nowrap;
+      }
+
+      button:hover:not(:disabled) {
+        background: var(--azul-oscuro);
+      }
+
+      button:focus-visible {
+        outline: 2px solid var(--texto);
+        outline-offset: 2px;
+      }
+
+      button:disabled {
+        background: var(--borde);
+        color: var(--gris);
+        cursor: not-allowed;
+      }
+
+      .mensaje {
+        min-height: 24px;
+        margin-bottom: 24px;
+        font-size: 0.95rem;
+      }
+
+      .mensaje.error {
+        color: #b91c1c;
+      }
+
+      .mensaje.exito {
+        color: var(--azul-oscuro);
+      }
+
+      .mensaje a {
+        color: inherit;
+        font-weight: 600;
+      }
+
+      h2 {
+        font-size: 1.2rem;
+        margin-bottom: 16px;
+      }
+
+      #historial {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .enlace-card {
+        background: white;
+        border: 1px solid var(--borde);
+        border-radius: var(--radio);
+        padding: 16px 18px;
+        animation: aparecer 0.2s ease;
+      }
+
+      @keyframes aparecer {
+        from {
+          opacity: 0;
+          transform: translateY(4px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .enlace-card p {
+        margin: 0 0 6px;
+        font-size: 0.95rem;
+      }
+
+      .enlace-card p:last-of-type {
+        margin-bottom: 12px;
+      }
+
+      .enlace-card .url {
+        overflow-wrap: anywhere;
+        color: var(--gris);
+      }
+
+      .enlace-card a {
+        color: var(--azul-oscuro);
+        font-weight: 600;
+        text-decoration: none;
+      }
+
+      .enlace-card a:hover {
+        text-decoration: underline;
+      }
+
+      .acciones {
+        display: flex;
+        gap: 8px;
+      }
+
+      .acciones button {
+        padding: 8px 14px;
+        font-size: 0.85rem;
+      }
+
+      .acciones button.copiar {
+        background: var(--fondo);
+        color: var(--texto);
+        border: 1px solid var(--borde);
+      }
+
+      .acciones button.copiar:hover:not(:disabled) {
+        background: var(--borde);
+      }
+
+      .acciones button.eliminar {
+        background: white;
+        color: var(--rojo);
+        border: 1px solid #f3c6c6;
+      }
+
+      .acciones button.eliminar:hover:not(:disabled) {
+        background: #fdecec;
+      }
+
+      #sin-registros {
+        color: var(--gris);
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>Acortador de URLs</h1>
+    <p class="subtitulo">
+      Convierte enlaces largos en URLs cortas y rastrea sus visitas
+    </p>
+
+    <form id="formulario">
+      <input
+        id="url-original"
+        type="text"
+        placeholder="https://ejemplo.com/ruta/muy/larga"
+        autocomplete="off"
+        required
+      />
+      <button type="submit" id="boton-acortar">Acortar</button>
+    </form>
+
+    <div id="mensaje" class="mensaje" role="status" aria-live="polite"></div>
+
+    <h2>Historial</h2>
+
+    <div id="historial">
+      {% for enlace in enlaces %}
+      <article class="enlace-card" id="enlace-{{ enlace.id }}">
+        <p class="url"><strong>Original:</strong> {{ enlace.url_original }}</p>
+        <p>
+          <strong>Corta:</strong>
+          <a href="/{{ enlace.codigo_corto }}" target="_blank" rel="noopener">
+            {{ request.host_url }}{{ enlace.codigo_corto }}
+          </a>
+        </p>
+        <p><strong>Visitas:</strong> {{ enlace.visitas }}</p>
+        <div class="acciones">
+          <button
+            type="button"
+            class="copiar"
+            data-url="{{ request.host_url }}{{ enlace.codigo_corto }}"
+          >
+            Copiar
+          </button>
+          <button type="button" class="eliminar" data-id="{{ enlace.id }}">
+            Eliminar
+          </button>
+        </div>
+      </article>
+      {% else %}
+      <p id="sin-registros">Todavía no hay enlaces.</p>
+      {% endfor %}
+    </div>
+
+    <script>
+      const formulario = document.getElementById("formulario");
+      const inputUrl = document.getElementById("url-original");
+      const boton = document.getElementById("boton-acortar");
+      const mensaje = document.getElementById("mensaje");
+      const historial = document.getElementById("historial");
+
+      function escaparHTML(texto) {
+        const div = document.createElement("div");
+        div.textContent = texto;
+        return div.innerHTML;
+      }
+
+      function mostrarMensaje(html, tipo) {
+        mensaje.innerHTML = html;
+        mensaje.className = `mensaje ${tipo || ""}`.trim();
+      }
+
+      function quitarEstadoVacio() {
+        const sinRegistros = document.getElementById("sin-registros");
+        if (sinRegistros) {
+          sinRegistros.remove();
+        }
+      }
+
+      function agregarTarjeta(enlace) {
+        quitarEstadoVacio();
+
+        const articulo = document.createElement("article");
+        articulo.className = "enlace-card";
+        articulo.id = `enlace-${enlace.id}`;
+        articulo.innerHTML = `
+                <p class="url"><strong>Original:</strong> ${escaparHTML(enlace.url_original)}</p>
+                <p>
+                    <strong>Corta:</strong>
+                    <a href="${escaparHTML(enlace.url_corta)}" target="_blank" rel="noopener">
+                        ${escaparHTML(enlace.url_corta)}
+                    </a>
+                </p>
+                <p><strong>Visitas:</strong> ${enlace.visitas ?? 0}</p>
+                <div class="acciones">
+                    <button type="button" class="copiar" data-url="${escaparHTML(enlace.url_corta)}">Copiar</button>
+                    <button type="button" class="eliminar" data-id="${enlace.id}">Eliminar</button>
+                </div>
+            `;
+        historial.prepend(articulo);
+      }
+
+      formulario.addEventListener("submit", async (evento) => {
+        evento.preventDefault();
+
+        const urlOriginal = inputUrl.value.trim();
+
+        if (!urlOriginal) {
+          mostrarMensaje("Debes ingresar una URL.", "error");
+          return;
+        }
+
+        boton.disabled = true;
+        boton.textContent = "Acortando...";
+        mostrarMensaje("");
+
+        try {
+          const respuesta = await fetch("/api/enlaces", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url_original: urlOriginal }),
+          });
+
+          const resultado = await respuesta.json();
+
+          if (!respuesta.ok) {
+            mostrarMensaje(
+              escaparHTML(resultado.error || "Ocurrió un error"),
+              "error",
+            );
+            return;
+          }
+
+          mostrarMensaje(
+            `URL creada: <a href="${escaparHTML(resultado.url_corta)}" target="_blank" rel="noopener">${escaparHTML(resultado.url_corta)}</a>`,
+            "exito",
+          );
+          formulario.reset();
+
+          // Si el backend devuelve el enlace creado, lo insertamos sin recargar.
+          if (resultado.enlace) {
+            agregarTarjeta({
+              ...resultado.enlace,
+              url_corta: resultado.url_corta,
+            });
+          } else {
+            window.setTimeout(() => window.location.reload(), 800);
+          }
+        } catch (error) {
+          mostrarMensaje("Error de conexión. Intenta de nuevo.", "error");
+        } finally {
+          boton.disabled = false;
+          boton.textContent = "Acortar";
+        }
+      });
+
+      // Delegación de eventos: un solo listener por acción en el contenedor,
+      // cubre tanto las tarjetas renderizadas por Jinja como las nuevas.
+      historial.addEventListener("click", async (evento) => {
+        const botonCopiar = evento.target.closest(".copiar");
+        const botonEliminar = evento.target.closest(".eliminar");
+
+        if (botonCopiar) {
+          try {
+            await navigator.clipboard.writeText(botonCopiar.dataset.url);
+            const textoOriginal = botonCopiar.textContent;
+            botonCopiar.textContent = "Copiado";
+            window.setTimeout(() => {
+              botonCopiar.textContent = textoOriginal;
+            }, 1200);
+          } catch (error) {
+            alert("No se pudo copiar. Copia el enlace manualmente.");
+          }
+          return;
+        }
+
+        if (botonEliminar) {
+          const confirmar = window.confirm("¿Deseas eliminar este enlace?");
+
+          if (!confirmar) {
+            return;
+          }
+
+          const id = botonEliminar.dataset.id;
+          const tarjeta = botonEliminar.closest(".enlace-card");
+
+          botonEliminar.disabled = true;
+          botonEliminar.textContent = "Eliminando...";
+
+          try {
+            const respuesta = await fetch(`/api/enlaces/${id}`, {
+              method: "DELETE",
+            });
+            const resultado = await respuesta.json();
+
+            if (!respuesta.ok) {
+              alert(resultado.error || "No fue posible eliminar el enlace");
+              botonEliminar.disabled = false;
+              botonEliminar.textContent = "Eliminar";
+              return;
+            }
+
+            if (tarjeta) {
+              tarjeta.remove();
+            }
+
+            if (!historial.querySelector(".enlace-card")) {
+              historial.innerHTML =
+                '<p id="sin-registros">Todavía no hay enlaces.</p>';
+            }
+          } catch (error) {
+            alert("Error de conexión al eliminar.");
+            botonEliminar.disabled = false;
+            botonEliminar.textContent = "Eliminar";
+          }
+        }
+      });
+    </script>
+  </body>
+</html>
