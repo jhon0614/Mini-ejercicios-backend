@@ -1,0 +1,1 @@
+from models.qr import QRCode

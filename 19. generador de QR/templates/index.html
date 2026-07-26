@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador QR</title>
+
+    <style>
+        :root {
+            --indigo: #4338ca;
+            --indigo-oscuro: #362d9c;
+            --rojo: #dc2626;
+            --rojo-oscuro: #b91c1c;
+            --fondo: #f7f7fb;
+            --texto: #1f2430;
+            --gris: #6b7280;
+            --borde: #e2e3ea;
+            --radio: 12px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 48px 20px 80px;
+            font-family: "Segoe UI", Arial, sans-serif;
+            background: var(--fondo);
+            color: var(--texto);
+        }
+
+        h1 {
+            margin: 0 0 6px;
+            font-size: 1.8rem;
+            letter-spacing: -0.02em;
+        }
+
+        .subtitulo {
+            margin: 0 0 28px;
+            color: var(--gris);
+        }
+
+        form {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        input {
+            flex: 1;
+            padding: 12px 14px;
+            border: 1px solid var(--borde);
+            border-radius: var(--radio);
+            font-size: 1rem;
+            background: white;
+        }
+
+        input:focus-visible {
+            outline: 2px solid var(--indigo);
+            outline-offset: 1px;
+        }
+
+        button {
+            padding: 12px 18px;
+            border: none;
+            border-radius: var(--radio);
+            background: var(--indigo);
+            color: white;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.15s ease;
+            white-space: nowrap;
+        }
+
+        button:hover:not(:disabled) {
+            background: var(--indigo-oscuro);
+        }
+
+        button:focus-visible {
+            outline: 2px solid var(--texto);
+            outline-offset: 2px;
+        }
+
+        button:disabled {
+            background: var(--borde);
+            color: var(--gris);
+            cursor: not-allowed;
+        }
+
+        .mensaje {
+            min-height: 24px;
+            margin-bottom: 24px;
+            font-size: 0.95rem;
+        }
+
+        .mensaje.error {
+            color: var(--rojo-oscuro);
+        }
+
+        .mensaje.exito {
+            color: var(--indigo-oscuro);
+        }
+
+        h2 {
+            font-size: 1.2rem;
+            margin-bottom: 16px;
+        }
+
+        #historial {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 16px;
+        }
+
+        .qr-card {
+            background: white;
+            border: 1px solid var(--borde);
+            border-radius: var(--radio);
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            text-align: center;
+            animation: aparecer 0.2s ease;
+        }
+
+        @keyframes aparecer {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .qr-card img {
+            width: 160px;
+            height: 160px;
+            border-radius: 6px;
+            background: white;
+        }
+
+        .qr-card .contenido {
+            overflow-wrap: anywhere;
+            font-size: 0.9rem;
+            color: var(--gris);
+            max-height: 4.2em;
+            overflow: hidden;
+        }
+
+        .qr-card .acciones {
+            display: flex;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .qr-card .acciones a,
+        .qr-card .acciones button {
+            flex: 1;
+            padding: 8px 10px;
+            font-size: 0.85rem;
+            text-align: center;
+            text-decoration: none;
+            border-radius: 8px;
+        }
+
+        .qr-card .acciones a {
+            background: var(--fondo);
+            color: var(--texto);
+            border: 1px solid var(--borde);
+        }
+
+        .qr-card .acciones a:hover {
+            background: var(--borde);
+        }
+
+        .qr-card .acciones button.eliminar {
+            background: white;
+            color: var(--rojo);
+            border: 1px solid #f3c6c6;
+        }
+
+        .qr-card .acciones button.eliminar:hover:not(:disabled) {
+            background: #fdecec;
+        }
+
+        #sin-registros {
+            color: var(--gris);
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Generador de códigos QR</h1>
+    <p class="subtitulo">Convierte cualquier texto o URL en un código QR descargable</p>
+
+    <form id="qr-form">
+        <input
+            id="contenido"
+            type="text"
+            placeholder="Escribe una URL o un texto"
+            autocomplete="off"
+            required
+        >
+        <button type="submit" id="boton-generar">Generar QR</button>
+    </form>
+
+    <div id="mensaje" class="mensaje" role="status" aria-live="polite"></div>
+
+    <h2>Historial</h2>
+
+    <div id="historial">
+        {% for registro in registros %}
+            <article class="qr-card" id="qr-{{ registro.id }}">
+                <img src="/qr/{{ registro.nombre_archivo }}" alt="Código QR para: {{ registro.contenido }}">
+                <p class="contenido">{{ registro.contenido }}</p>
+                <div class="acciones">
+                    <a href="/qr/{{ registro.nombre_archivo }}/descargar">Descargar</a>
+                    <button type="button" class="eliminar" data-id="{{ registro.id }}">Eliminar</button>
+                </div>
+            </article>
+        {% else %}
+            <p id="sin-registros">Todavía no hay códigos QR.</p>
+        {% endfor %}
+    </div>
+
+    <script>
+        const formulario = document.getElementById("qr-form");
+        const input = document.getElementById("contenido");
+        const boton = document.getElementById("boton-generar");
+        const mensaje = document.getElementById("mensaje");
+        const historial = document.getElementById("historial");
+
+        function escaparHTML(texto) {
+            const div = document.createElement("div");
+            div.textContent = texto;
+            return div.innerHTML;
+        }
+
+        function mostrarMensaje(texto, tipo) {
+            mensaje.textContent = texto;
+            mensaje.className = `mensaje ${tipo || ""}`.trim();
+        }
+
+        function quitarEstadoVacio() {
+            const sinRegistros = document.getElementById("sin-registros");
+            if (sinRegistros) {
+                sinRegistros.remove();
+            }
+        }
+
+        function agregarTarjeta(registro) {
+            quitarEstadoVacio();
+
+            const articulo = document.createElement("article");
+            articulo.className = "qr-card";
+            articulo.id = `qr-${registro.id}`;
+            articulo.innerHTML = `
+                <img src="/qr/${escaparHTML(registro.nombre_archivo)}" alt="Código QR para: ${escaparHTML(registro.contenido)}">
+                <p class="contenido">${escaparHTML(registro.contenido)}</p>
+                <div class="acciones">
+                    <a href="/qr/${escaparHTML(registro.nombre_archivo)}/descargar">Descargar</a>
+                    <button type="button" class="eliminar" data-id="${registro.id}">Eliminar</button>
+                </div>
+            `;
+            historial.prepend(articulo);
+        }
+
+        formulario.addEventListener("submit", async (evento) => {
+            evento.preventDefault();
+
+            const contenido = input.value.trim();
+
+            if (!contenido) {
+                mostrarMensaje("Debes ingresar un contenido.", "error");
+                return;
+            }
+
+            boton.disabled = true;
+            boton.textContent = "Generando...";
+            mostrarMensaje("");
+
+            try {
+                const respuesta = await fetch("/api/qr", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ contenido })
+                });
+
+                const resultado = await respuesta.json();
+
+                if (!respuesta.ok) {
+                    mostrarMensaje(resultado.error || "Ocurrió un error", "error");
+                    return;
+                }
+
+                mostrarMensaje(resultado.mensaje || "Código QR generado.", "exito");
+                formulario.reset();
+
+                // Si el backend devuelve el registro creado, lo insertamos sin recargar.
+                // Si no, recargamos para reflejar el nuevo historial.
+                if (resultado.registro) {
+                    agregarTarjeta(resultado.registro);
+                } else {
+                    window.location.reload();
+                }
+            } catch (error) {
+                mostrarMensaje("Error de conexión. Intenta de nuevo.", "error");
+            } finally {
+                boton.disabled = false;
+                boton.textContent = "Generar QR";
+            }
+        });
+
+        // Delegación de eventos: un solo listener en el contenedor cubre
+        // las tarjetas ya renderizadas por Jinja y las que se agregan por JS.
+        historial.addEventListener("click", async (evento) => {
+            const botonEliminar = evento.target.closest(".eliminar");
+
+            if (!botonEliminar) {
+                return;
+            }
+
+            const id = botonEliminar.dataset.id;
+            const confirmar = window.confirm("¿Deseas eliminar este código QR?");
+
+            if (!confirmar) {
+                return;
+            }
+
+            const tarjeta = botonEliminar.closest(".qr-card");
+
+            botonEliminar.disabled = true;
+            botonEliminar.textContent = "Eliminando...";
+
+            try {
+                const respuesta = await fetch(`/api/qr/${id}`, { method: "DELETE" });
+                const resultado = await respuesta.json();
+
+                if (!respuesta.ok) {
+                    alert(resultado.error || "No se pudo eliminar");
+                    botonEliminar.disabled = false;
+                    botonEliminar.textContent = "Eliminar";
+                    return;
+                }
+
+                if (tarjeta) {
+                    tarjeta.remove();
+                }
+
+                if (!historial.querySelector(".qr-card")) {
+                    historial.innerHTML = '<p id="sin-registros">Todavía no hay códigos QR.</p>';
+                }
+            } catch (error) {
+                alert("Error de conexión al eliminar.");
+                botonEliminar.disabled = false;
+                botonEliminar.textContent = "Eliminar";
+            }
+        });
+    </script>
+</body>
+</html>
