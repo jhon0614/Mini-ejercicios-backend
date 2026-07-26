@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PokeAPI · Buscador</title>
+  <style>
+    :root {
+      --rojo: #e3350d;
+      --rojo-oscuro: #b8290a;
+      --crema: #f4f1ea;
+      --gris-oscuro: #2b2b2b;
+      --gris: #6b6b6b;
+      --borde: #dcd7cb;
+      --radio: 14px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 48px 20px;
+      background: var(--crema);
+      font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: var(--gris-oscuro);
+    }
+
+    main {
+      width: 100%;
+      max-width: 420px;
+    }
+
+    h1 {
+      margin: 0 0 4px;
+      font-size: 1.75rem;
+      letter-spacing: -0.02em;
+    }
+
+    h1 span {
+      color: var(--rojo);
+    }
+
+    .subtitulo {
+      margin: 0 0 28px;
+      color: var(--gris);
+      font-size: 0.95rem;
+    }
+
+    form {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      padding: 12px 14px;
+      border: 1px solid var(--borde);
+      border-radius: var(--radio);
+      font-size: 1rem;
+      background: white;
+      min-width: 0;
+    }
+
+    input[type="text"]:focus-visible {
+      outline: 2px solid var(--rojo);
+      outline-offset: 1px;
+    }
+
+    button {
+      padding: 12px 20px;
+      border: none;
+      border-radius: var(--radio);
+      background: var(--rojo);
+      color: white;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+
+    button:hover:not(:disabled) {
+      background: var(--rojo-oscuro);
+    }
+
+    button:focus-visible {
+      outline: 2px solid var(--gris-oscuro);
+      outline-offset: 2px;
+    }
+
+    button:disabled {
+      background: var(--borde);
+      cursor: not-allowed;
+    }
+
+    #resultado {
+      min-height: 40px;
+    }
+
+    .tarjeta {
+      background: white;
+      border: 1px solid var(--borde);
+      border-radius: var(--radio);
+      padding: 20px;
+      text-align: center;
+      animation: aparecer 0.2s ease;
+    }
+
+    @keyframes aparecer {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .tarjeta h2 {
+      margin: 8px 0 4px;
+      text-transform: capitalize;
+      font-size: 1.4rem;
+    }
+
+    .tarjeta img {
+      width: 140px;
+      height: 140px;
+      image-rendering: pixelated;
+    }
+
+    .tarjeta p {
+      margin: 6px 0;
+      font-size: 0.95rem;
+      color: var(--gris);
+    }
+
+    .tarjeta p b {
+      color: var(--gris-oscuro);
+    }
+
+    .mensaje {
+      padding: 14px 16px;
+      border-radius: var(--radio);
+      font-size: 0.95rem;
+    }
+
+    .mensaje.error {
+      background: #fdeceb;
+      border: 1px solid #f3b7ae;
+      color: var(--rojo-oscuro);
+    }
+
+    .mensaje.cargando {
+      background: white;
+      border: 1px solid var(--borde);
+      color: var(--gris);
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Poke<span>API</span></h1>
+    <p class="subtitulo">Busca un Pokémon por su nombre</p>
+
+    <form id="formulario">
+      <input
+        type="text"
+        id="pokemon"
+        placeholder="Ej. pikachu"
+        autocomplete="off"
+        aria-label="Nombre del Pokémon"
+      />
+      <button type="submit" id="boton">Buscar</button>
+    </form>
+
+    <div id="resultado" aria-live="polite"></div>
+  </main>
+
+  <script>
+    const formulario = document.getElementById("formulario");
+    const input = document.getElementById("pokemon");
+    const boton = document.getElementById("boton");
+    const resultado = document.getElementById("resultado");
+
+    // Evita inyección de HTML al insertar texto dinámico
+    function escaparHTML(texto) {
+      const div = document.createElement("div");
+      div.textContent = texto;
+      return div.innerHTML;
+    }
+
+    function mostrarMensaje(texto, tipo) {
+      resultado.innerHTML = `<div class="mensaje ${tipo}">${escaparHTML(texto)}</div>`;
+    }
+
+    function mostrarPokemon(data) {
+      resultado.innerHTML = `
+        <div class="tarjeta">
+          <img src="${escaparHTML(data.imagen)}" alt="${escaparHTML(data.nombre)}" />
+          <h2>${escaparHTML(data.nombre)}</h2>
+          <p><b>Tipos:</b> ${escaparHTML(data.tipos.join(", "))}</p>
+          <p><b>Habilidades:</b> ${escaparHTML(data.habilidades.join(", "))}</p>
+        </div>
+      `;
+    }
+
+    async function buscarPokemon(nombre) {
+      boton.disabled = true;
+      mostrarMensaje("Buscando...", "cargando");
+
+      try {
+        const response = await fetch(`/pokemon?nombre=${encodeURIComponent(nombre)}`);
+
+        if (!response.ok) {
+          mostrarMensaje("No se pudo contactar al servidor. Intenta de nuevo.", "error");
+          return;
+        }
+
+        const data = await response.json();
+
+        if (data.error) {
+          mostrarMensaje(data.error, "error");
+          return;
+        }
+
+        mostrarPokemon(data);
+      } catch (error) {
+        mostrarMensaje("Ocurrió un error de conexión. Revisa tu red.", "error");
+      } finally {
+        boton.disabled = false;
+      }
+    }
+
+    formulario.addEventListener("submit", (evento) => {
+      evento.preventDefault();
+      const nombre = input.value.trim();
+
+      if (!nombre) {
+        mostrarMensaje("Escribe un nombre de Pokémon.", "error");
+        return;
+      }
+
+      buscarPokemon(nombre);
+    });
+  </script>
+</body>
+</html>
